@@ -1,6 +1,8 @@
 import (
   time
   os
+  http
+  json
 )
 
 struct Point {
@@ -8,11 +10,22 @@ struct Point {
 	y int
 }
 
-fn print_universe(universe[]array_int) {
+struct HexBotColor {
+	value string
+}
+
+struct HexBotResponse {
+	colors []HexBotColor
+}
+
+fn print_universe(universe[]array_int, life_colour string) {
+  alive := '\u25FC'
+  dead := '\u25FB'
+  ansi := '\x1b'
   for row in universe {
     mut rendered_row := '     '
     for col in row {
-      rendered_row += if col == 1{'\u25FC '} else { '\u25FB '}
+      rendered_row += if col == 1{ color_string(alive, life_colour) + ' ' } else { ansi + '[38;2;222;12;33m' + dead + ' ' + ansi + '[0m' }
     }
     println(rendered_row)
   }
@@ -108,13 +121,48 @@ fn count_live_neighbours(universe []array_int, focus_x, focus_y int) int {
   return count
 }
 
+fn hex_char_to_decimal(hex_char string) int {
+  if (hex_char == '0') { return 0 }
+  if (hex_char == '1') { return 1 }
+  if (hex_char == '2') { return 2 }
+  if (hex_char == '3') { return 3 }
+  if (hex_char == '4') { return 4 }
+  if (hex_char == '5') { return 5 }
+  if (hex_char == '6') { return 6 }
+  if (hex_char == '7') { return 7 }
+  if (hex_char == '8') { return 8 }
+  if (hex_char == '9') { return 9 }
+  if (hex_char == '10') { return 10 }
+  if (hex_char == 'A') { return 11 }
+  if (hex_char == 'B') { return 12 }
+  if (hex_char == 'C') { return 13 }
+  if (hex_char == 'D') { return 14 }
+  if (hex_char == 'E') { return 15 }
+  if (hex_char == 'F') { return 16 }
+  return 0
+}
+
+fn rough_hex_to_rgb(hex string) string {
+  int_val := (hex_char_to_decimal(hex.substr(0, 1)) * 16) + (hex_char_to_decimal(hex.substr(1, 2)))
+  clamped := clamp(int_val, 0, 255)
+  return clamped.str()
+}
+
+fn color_string(str, hex_color string) string {
+  red := hex_color.substr(1, 3)
+  green := hex_color.substr(3, 5)
+  blue := hex_color.substr(5, 7)
+  rgb := [rough_hex_to_rgb(red), rough_hex_to_rgb(green), rough_hex_to_rgb(blue)].join(';')
+  return '\x1b[38;2;${rgb}m$str\x1b[0m'
+}
+
 fn main() {
   specified_width := 40
   specified_height := 40
   iterations := 1000
-  sleep := 150
+  mut color := '#ffffff'
   mut universe := create_universe(specified_width, specified_height)
-  print_universe(universe)
+  print_universe(universe, color)
   universe = add_points_to_universe(universe, gosper_glider_gun(), 3, 3)
   for i := 0; i < iterations; i++ {
     os.system('clear')
@@ -133,7 +181,14 @@ fn main() {
       }
     }
     universe = new_universe
-    print_universe(universe)
-    time.sleep_ms(sleep)
+    print_universe(universe, color)
+
+    hexbot_response := json.decode(HexBotResponse, http.get('https://api.noopschallenge.com/hexbot')) or {
+      eprintln('Failed to decode json')
+      return
+    }
+    next_color := hexbot_response.colors[0].value
+    println('Next color: $next_color')
+    color = next_color
   }
 }
