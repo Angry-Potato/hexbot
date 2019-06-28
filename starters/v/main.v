@@ -184,11 +184,9 @@ fn main() {
     print_universe(universe, color)
 
     hexbot_response := json.decode(HexBotResponse, http.get('https://api.noopschallenge.com/hexbot')) or {
-      eprintln('Failed to decode json')
-      return
+      continue
     }
     next_color := hexbot_response.colors[0].value
-    println('Next color: $next_color')
     color = next_color
   }
 }
